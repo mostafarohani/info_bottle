@@ -10,7 +10,7 @@ def attention(keys_dim, vals_dim, query_dim, max_path_length, dense=True, last_t
               )
 
 
-def tc(output_channels, dilation):
+def tc(output_channels, rate):
   return dict(name='tfu.CausalConv1D',
               kwargs=dict(train_initial_state=True, dense=True,
                           params=dict(kernel_shape=2,
