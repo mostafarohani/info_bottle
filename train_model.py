@@ -16,9 +16,9 @@ class MNISTClassifier(snt.AbstractModule):
       self._cores = tfu.Struct()
       self.layers = [
           snt.Linear(256),
-          tfu.leaky_relu,
+          tf.tanh,
           snt.Linear(256),
-          tfu.leaky_relu,
+          tf.tanh,
           snt.Linear(10)
       ]
       #self._cores.process = snt.Sequential(layers)
@@ -72,7 +72,7 @@ def main():
       if itr % 1000 == 0 or itr == 5 or itr == 10 or itr == 20:
         acc, l = sess.run([accuracy, loss], feed_dict={x : batch[0], y : batch[1]})
         print('itr % d, training accuracy %f, loss %f' % (itr, acc, l))
-        save_activations('data', itr)
+        save_activations(FLAGS.dump_dir, itr)
       else:
         sess.run([train_op], feed_dict={x : batch[0], y : batch[1]})
 
@@ -88,6 +88,8 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('--data_dir', type=str,
                       default='/tmp/tensorflow/mnist/input_data')
+  parser.add_argument('--dump_dir', type=str,
+                      default='data')
   parser.add_argument('--itr_count', type=int, default=10000)
   parser.add_argument('--devices', type=str, default='0')
 

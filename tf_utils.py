@@ -19,6 +19,8 @@ except ImportError:
 import tensorflow as tf
 import sonnet as snt
 
+snt.BatchNorm._build = tf.contrib.framework.add_arg_scope(snt.BatchNorm._build)
+
 
 def _not_iterable(obj):
   return not snt.nest.is_iterable(obj)

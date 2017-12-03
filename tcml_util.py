@@ -49,13 +49,13 @@ def conv1x1(output_dim):
               )
 
 
-def batch_norm():
+def batch_norm(fused=True):
   return [
       dict(name='snt.BatchNorm',
            kwargs=dict(decay_rate=0.99,
                        scale=True,
                        regularizers=None,
-                       fused=True)
+                       fused=fused)
            ),
       'tfu.leaky_relu',
   ]
