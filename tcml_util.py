@@ -1,5 +1,5 @@
 import numpy as np
-import sandbox.tcml.tf_utils as tfu
+import tf_utils as tfu
 
 
 def attention(keys_dim, vals_dim, query_dim, max_path_length, dense=True, last_timestep_only=False):
