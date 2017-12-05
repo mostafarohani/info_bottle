@@ -833,9 +833,11 @@ class CausalConv1D(snt.RNNCore):
       # h_out = tf.split(h_out[:, 1:], k - 1, axis=1)
 
     if z is not None:
-      xf += self._cores.lin_f(z)
-      xg += self._cores.lin_g(z)
-
+      zf, zg = self._cores.lin_f(z), self._cores.lin_g(z)
+      if mode == 'conv':
+        zf, zg = zf[:, None], zg[:, None]
+      xf += zf
+      xg += zg
     x_out = tf.tanh(xf) * tf.sigmoid(xg)
 
     if self._dense:

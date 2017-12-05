@@ -9,15 +9,17 @@ import os.path as osp
 import pickle
 import tcml_util as util
 import ipdb
+import inspect
 
 
 class Generator(snt.AbstractModule):
   def __init__(self, name, dim_in, dim_out):
     super(Generator, self).__init__(name=name)
-
+    r = int(np.ceil(np.log2(dim_in)))
     with self._enter_variable_scope():
       layer_defs = [
-          util.tc_block(32, [1, 2, 4, 8, 16]),
+          util.conv1x1(64),
+          util.tc_block(32, 2 ** np.arange(r)),
           util.attention(keys_dim=32, vals_dim=32,
                          query_dim=32, max_path_length=dim_in),
           'tfu.leaky_relu',
@@ -26,16 +28,22 @@ class Generator(snt.AbstractModule):
       self.layers, self.layer_names = tfu.layer_factory(layer_defs)
       self._core = snt.Sequential(self.layers)
 
-  def _build(self, obs):
-    out = self._core(obs)
-    return out
+  def _build(self, x, z=None):
+    for core in self._core._layers:
+      if isinstance(core, snt.AbstractModule):
+        spec = inspect.signature(core._build).parameters
+        if 'z' in spec:
+          x = core(x, z=z)
+          continue
+      x = core(x)
+    return x
 
 
 def train_generator(name, data, bins=32):
 
   ds = tf.contrib.distributions
 
-  def _build_model(model, cond_model, batch_size=32, split='train'):
+  def _build_model(model, cond_model, batch_size=16, split='train'):
     dataset = tf.data.Dataset.from_tensor_slices(dict(x=data['%s_%s' % (split, name)],
                                                       y=data['%s_labels' % split]))
     dataset = dataset.shuffle(512) \
@@ -53,13 +61,11 @@ def train_generator(name, data, bins=32):
     x_discr.set_shape(batch.x.shape)
     x = tf.one_hot(x_discr, bins)
     y = tf.one_hot(batch.y, 10)
-    xy = tf.concat([x, tf.tile(y[:, None], [1, x.shape[1].value, 1])], axis=-1)
 
     # Estimate log p(X), H(X) = E[-log p(X)]
     x_shifted = tf.concat([tf.zeros_like(x[:, :1]), x[:, :-1]], axis=1)
-    xy_shifted = tf.concat([tf.zeros_like(xy[:, :1]), xy[:, :-1]], axis=1)
     logits = model(x_shifted)
-    logits_cond = cond_model(xy_shifted)
+    logits_cond = cond_model(x_shifted, y)
 
     log_prob = ds.Categorical(logits).log_prob(x_discr)
     log_prob_cond = ds.Categorical(logits_cond).log_prob(x_discr)
@@ -71,19 +77,8 @@ def train_generator(name, data, bins=32):
 
     # Estimate I(X;Y) = H(X) - H(X|Y)
     # H(X|Y) = E[-log p(X|Y=y) p(Y=y)]
-    mi = nll
-    for i in range(10):
-      mask = tf.equal(batch.y, i)
-      py = tf.reduce_mean(tf.to_float(mask))
-
-      mi -= py * tf.cond(
-          py > 0,
-          lambda: tf.negative(tf.reduce_mean(
-              tf.boolean_mask(log_prob_cond, mask))),
-          lambda: tf.constant(0.0))
-
+    mi = (nll - nll_cond) / np.log(2.)
     ent = nll / np.log(2.)
-    mi = mi / np.log(2.)
 
     return tfu.Struct(loss=loss,
                       ent=tf.check_numerics(ent, 'ENT is NaN!'),
@@ -106,11 +101,13 @@ if __name__ == '__main__':
   FLAGS = parser.parse_args()
 
   sess = tfu.Session(devices=FLAGS.devices).__enter__()
-  all_iters = [0, 5, 10, 20, 1000, 9000]
-  all_layers = [1, 3, 4]
+  all_iters = [9000]  # 0, 5, 10, 20, 1000, 9000]
+  all_layers = [4]  # 1, 3, 4]
 
   mnist = input_data.read_data_sets(FLAGS.data_dir)
-  data = dict(train_labels=mnist.train.labels, test_labels=mnist.test.labels)
+  data = dict(train_labels=mnist.train.labels, test_labels=mnist.test.labels,
+              train_images=mnist.train.images, test_images=mnist.test.images)
+
   for itr in all_iters:
     file_loc = osp.join(FLAGS.data_dir, '%d.pkl' % itr)
     with open(file_loc, 'rb') as f:
@@ -119,7 +116,7 @@ if __name__ == '__main__':
   outputs = {}
   for itr in all_iters:
     for layer in all_layers:
-      prefix = 'itr%d_layer%d' % (itr, layer)
+      prefix = 'images'  # 'itr%d_layer%d' % (itr, layer)
       train_data = data['train_%s' % prefix]
       test_data = data['test_%s' % prefix]
       print('creating model for %s' % prefix)
