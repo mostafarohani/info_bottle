@@ -9,6 +9,7 @@ import os.path as osp
 import pickle
 import tcml_util as util
 import ipdb
+from mpi4py import MPI
 
 
 class Generator(snt.AbstractModule):
@@ -98,6 +99,10 @@ def train_generator(name, data, bins=32):
 
 
 if __name__ == '__main__':
+  comm = MPI.COMM_WORLD
+  rank = comm.Get_rank()
+  size = comm.Get_size()
+
   parser = argparse.ArgumentParser()
   parser.add_argument('--data_dir', type=str, default='tanh_data')
   parser.add_argument('--itr_count', type=int, default=10000)
@@ -105,7 +110,7 @@ if __name__ == '__main__':
   parser.add_argument('--devices', type=str, default='0')
   FLAGS = parser.parse_args()
 
-  sess = tfu.Session(devices=FLAGS.devices).__enter__()
+  sess = tfu.Session(devices=str(rank)).__enter__()
   all_iters = [0, 5, 10, 20, 1000, 9000]
   all_layers = [1, 3, 4]
 
@@ -117,34 +122,37 @@ if __name__ == '__main__':
       data.update(pickle.load(f))
 
   outputs = {}
+  count = 0
   for itr in all_iters:
     for layer in all_layers:
-      prefix = 'itr%d_layer%d' % (itr, layer)
-      train_data = data['train_%s' % prefix]
-      test_data = data['test_%s' % prefix]
-      print('creating model for %s' % prefix)
-      train_ops, test_rollout = train_generator(prefix, data)
-      train = tfu.Function({}, train_ops)
-      test = tfu.Function({}, test_rollout)
+      if count % size == rank:
+        prefix = 'itr%d_layer%d' % (itr, layer)
+        train_data = data['train_%s' % prefix]
+        test_data = data['test_%s' % prefix]
+        print('creating model for %s' % prefix)
+        train_ops, test_rollout = train_generator(prefix, data)
+        train = tfu.Function({}, train_ops)
+        test = tfu.Function({}, test_rollout)
 
-      tfu.global_init(sess)
-      sess.run(tf.get_collection('datasets'))
-      print('starting training', prefix)
+        tfu.global_init(sess)
+        sess.run(tf.get_collection('datasets'))
+        print('starting training', prefix)
 
-      for i in range(FLAGS.itr_count):
-        tr = train()
-        if i % FLAGS.print_window == 0:
-          te = test()
-          print('itr %d | train %.3f, %.3f | test %.3f, %.3f' %
-                (i, tr.ent, tr.mi, te.ent, te.mi))
+        for i in range(FLAGS.itr_count):
+          tr = train()
+          if i % FLAGS.print_window == 0:
+            te = test()
+            print('itr %d | train %.3f, %.3f | test %.3f, %.3f' %
+                  (i, tr.ent, tr.mi, te.ent, te.mi))
 
-      print('finished training', prefix)
-      results = [test() for _ in range(32)]
-      outputs[prefix] = {k: np.mean([r[k] for r in results])
-                         for k in ['ent', 'mi']}
+        print('finished training', prefix)
+        results = [test() for _ in range(32)]
+        outputs[prefix] = {k: np.mean([r[k] for r in results])
+                           for k in ['ent', 'mi']}
 
-      tf.get_collection_ref('datasets').clear()
-      print('finished benchmark for', prefix, outputs[prefix])
+        tf.get_collection_ref('datasets').clear()
+        print('finished benchmark for', prefix, outputs[prefix])
+      count += 1
 
-    with open('./output.pkl', 'wb') as f:
+    with open('./output_%d.pkl' % rank, 'wb') as f:
       pickle.dump(outputs, f)
