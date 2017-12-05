@@ -33,7 +33,9 @@ class Generator(snt.AbstractModule):
 
 def train_generator(name, data, bins=32):
 
-  def _build_model(model, batch_size=32, split='train'):
+  ds = tf.contrib.distributions
+
+  def _build_model(model, cond_model, batch_size=32, split='train'):
     dataset = tf.data.Dataset.from_tensor_slices(dict(x=data['%s_%s' % (split, name)],
                                                       y=data['%s_labels' % split]))
     dataset = dataset.shuffle(512) \
@@ -50,32 +52,48 @@ def train_generator(name, data, bins=32):
                          [batch.x], tf.int64)
     x_discr.set_shape(batch.x.shape)
     x = tf.one_hot(x_discr, bins)
+    y = tf.one_hot(batch.y, 10)
+    xy = tf.concat([x, tf.tile(y[:, None], [1, x.shape[1].value, 1])], axis=-1)
 
-    # Estimate log p(X), H(X) = E[-log p(X)
+    # Estimate log p(X), H(X) = E[-log p(X)]
     x_shifted = tf.concat([tf.zeros_like(x[:, :1]), x[:, :-1]], axis=1)
+    xy_shifted = tf.concat([tf.zeros_like(xy[:, :1]), xy[:, :-1]], axis=1)
     logits = model(x_shifted)
-    ds = tf.contrib.distributions
+    logits_cond = cond_model(xy_shifted)
+
     log_prob = ds.Categorical(logits).log_prob(x_discr)
-    mi = nll = tf.negative(tf.reduce_mean(log_prob)) / np.log(2)
+    log_prob_cond = ds.Categorical(logits_cond).log_prob(x_discr)
+
+    nll = tf.negative(tf.reduce_mean(log_prob))
+    nll_cond = tf.negative(tf.reduce_mean(log_prob_cond))
+
+    loss = nll + nll_cond
 
     # Estimate I(X;Y) = H(X) - H(X|Y)
     # H(X|Y) = E[-log p(X|Y=y) p(Y=y)]
+    mi = nll
     for i in range(10):
       mask = tf.equal(batch.y, i)
       py = tf.reduce_mean(tf.to_float(mask))
-      nll_cond = tf.cond(
-          py > 0,
-          lambda: tf.negative(tf.reduce_mean(tf.boolean_mask(log_prob, mask))),
-          lambda: tf.constant(0.0))
-      mi -= py * nll_cond
 
-    return tfu.Struct(nll=tf.check_numerics(nll, 'NLL is NaN!'),
+      mi -= py * tf.cond(
+          py > 0,
+          lambda: tf.negative(tf.reduce_mean(
+              tf.boolean_mask(log_prob_cond, mask))),
+          lambda: tf.constant(0.0))
+
+    ent = nll / np.log(2.)
+    mi = mi / np.log(2.)
+
+    return tfu.Struct(loss=loss,
+                      ent=tf.check_numerics(ent, 'ENT is NaN!'),
                       mi=tf.check_numerics(mi, 'MI is NaN!'))
 
   model = Generator(name, train_data.shape[-1], bins)
-  train = _build_model(model, split='train')
-  train.op = tfu.make_train_op(train.nll, tfu.adam())
-  test = _build_model(model, split='test', batch_size=512)
+  cond_model = Generator(name + '_cond', train_data.shape[-1] + 10, bins)
+  train = _build_model(model, cond_model, split='train')
+  train.op = tfu.make_train_op(train.loss, tfu.adam())
+  test = _build_model(model, cond_model, split='test', batch_size=512)
   return train, test
 
 
@@ -118,12 +136,13 @@ if __name__ == '__main__':
         if i % FLAGS.print_window == 0:
           te = test()
           print('itr %d | train %.3f, %.3f | test %.3f, %.3f' %
-                (i, tr.nll, tr.mi, te.nll, te.mi))
+                (i, tr.ent, tr.mi, te.ent, te.mi))
 
       print('finished training', prefix)
       results = [test() for _ in range(32)]
       outputs[prefix] = {k: np.mean([r[k] for r in results])
-                         for k in ['nll', 'mi']}
+                         for k in ['ent', 'mi']}
+
       tf.get_collection_ref('datasets').clear()
       print('finished benchmark for', prefix, outputs[prefix])
 
