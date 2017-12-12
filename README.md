@@ -21,7 +21,17 @@ We trained a fully-connected network on the MNIST dataset, saved its activations
 For each layer and iteration, we discretized each element of the activations into 32 bins, and trained two generative models. These modeled <img src="https://rawgit.com/mostafarohani/info_bottle/master/svgs/d9e560b0d39f8eb57862e63425a2a3d1.svg?invert_in_darkmode" align=middle width=32.830875pt height=24.56552999999997pt/> and <img src="https://rawgit.com/mostafarohani/info_bottle/master/svgs/2ed2140a9f85fc376bb493e3f7913ac8.svg?invert_in_darkmode" align=middle width=50.54065500000001pt height=24.56552999999997pt/>; the only difference being that the latter received the label <img src="https://rawgit.com/mostafarohani/info_bottle/master/svgs/91aac9730317276af725abd8cef04ca9.svg?invert_in_darkmode" align=middle width=13.147200000000002pt height=22.381919999999983pt/> as an additional input.
 We then estimated <img src="https://rawgit.com/mostafarohani/info_bottle/master/svgs/04f24c77fd5784203a5948c61218523c.svg?invert_in_darkmode" align=middle width=152.42287499999998pt height=24.56552999999997pt/> and <img src="https://rawgit.com/mostafarohani/info_bottle/master/svgs/c998ddc6521d465ddbb4924c6e8791d9.svg?invert_in_darkmode" align=middle width=187.843095pt height=24.56552999999997pt/>, using the probabilities produced by our models and taking the expectation over the MNIST test set.
 
+## Requirements
+Specified in ```requirements.txt``` is the output of my ```pip freeze```, and therefore it has more packages than you will need to run this particular project. Regardless, you can get everything by running
+
+```
+pip install -r requirements.txt
+```
+
+You will still need to install CUDA and CUDNN to have tensorflow working on the GPU.
+
 ## Running the code
+
 First you need to train an MNIST model and save the activations at different layers. Our Mnist model has 2 hidden layers, each with 256 hidden units and tanh nonlinearities. We consider the output layer, and after each activation function. We look at the values for iterations 0, 5, 10, 20, 1000, 9000. The code defaults to running on the 0th GPU. Run ```nvidia-smi``` to check which GPUs are avaliable on your machine.
 ```
 python train_model.py --devices <GPU_NUM>

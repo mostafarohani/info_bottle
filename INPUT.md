@@ -21,7 +21,17 @@ We trained a fully-connected network on the MNIST dataset, saved its activations
 For each layer and iteration, we discretized each element of the activations into 32 bins, and trained two generative models. These modeled $p(T)$ and $p(T|Y)$; the only difference being that the latter received the label $Y$ as an additional input.
 We then estimated $H(T) = -\mathbf{E}[\log p(T)]$ and $H(T|Y) = - \mathbf{E}[\log p(T|Y)]$, using the probabilities produced by our models and taking the expectation over the MNIST test set.
 
+## Requirements
+Specified in ```requirements.txt``` is the output of my ```pip freeze```, and therefore it has more packages than you will need to run this particular project. Regardless, you can get everything by running
+
+```
+pip install -r requirements.txt
+```
+
+You will still need to install CUDA and CUDNN to have tensorflow working on the GPU.
+
 ## Running the code
+
 First you need to train an MNIST model and save the activations at different layers. Our Mnist model has 2 hidden layers, each with 256 hidden units and tanh nonlinearities. We consider the output layer, and after each activation function. We look at the values for iterations 0, 5, 10, 20, 1000, 9000. The code defaults to running on the 0th GPU. Run ```nvidia-smi``` to check which GPUs are avaliable on your machine.
 ```
 python train_model.py --devices <GPU_NUM>
