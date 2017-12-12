@@ -26,7 +26,7 @@ First you need to train an MNIST model and save the activations at different lay
 ```
 python train_model.py --devices <GPU_NUM>
 ```
-Now that you have the data, you can train the generator models. To speed up this process, we use MPI for parallezing the workload. As an example, if GPUs 0,1,2,3 are avaliable, you would run
+Now that you have the data, you can train the generator models. To speed up this process, we use MPI for parallelizing the workload. As an example, if GPUs 0,1,2,3 are avaliable, you would run
 ```
 mpirun -np 4 python generator.py --devices 0,1,2,3
 ```
