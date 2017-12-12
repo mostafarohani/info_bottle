@@ -37,8 +37,9 @@ def train_generator(name, data, bins=32):
   ds = tf.contrib.distributions
 
   def _build_model(model, cond_model, batch_size=32, split='train'):
-    dataset = tf.data.Dataset.from_tensor_slices(dict(x=data['%s_%s' % (split, name)],
-                                                      y=data['%s_labels' % split]))
+    dataset = tf.data.Dataset.from_tensor_slices(
+        dict(x=data['%s_%s' % (split, name)],
+             y=data['%s_%s_labels' % (split, name)].astype(np.float32)))
     dataset = dataset.shuffle(512) \
                      .batch(batch_size) \
                      .prefetch(batch_size) \
@@ -53,7 +54,7 @@ def train_generator(name, data, bins=32):
                          [batch.x], tf.int64)
     x_discr.set_shape(batch.x.shape)
     x = tf.one_hot(x_discr, bins)
-    y = tf.one_hot(batch.y, 10)
+    y = batch.y
     xy = tf.concat([x, tf.tile(y[:, None], [1, x.shape[1].value, 1])], axis=-1)
 
     # Estimate log p(X), H(X) = E[-log p(X)]
@@ -72,19 +73,9 @@ def train_generator(name, data, bins=32):
 
     # Estimate I(X;Y) = H(X) - H(X|Y)
     # H(X|Y) = E[-log p(X|Y=y) p(Y=y)]
-    mi = nll
-    for i in range(10):
-      mask = tf.equal(batch.y, i)
-      py = tf.reduce_mean(tf.to_float(mask))
 
-      mi -= py * tf.cond(
-          py > 0,
-          lambda: tf.negative(tf.reduce_mean(
-              tf.boolean_mask(log_prob_cond, mask))),
-          lambda: tf.constant(0.0))
-
-    ent = nll / np.log(2.)
-    mi = mi / np.log(2.)
+    mi = (nll - nll_cond) / np.log(2.)
+    nll = nll / np.log(2.)
 
     return tfu.Struct(loss=loss,
                       ent=tf.check_numerics(ent, 'ENT is NaN!'),
@@ -115,7 +106,7 @@ if __name__ == '__main__':
   all_layers = [1, 3, 4]
 
   mnist = input_data.read_data_sets(FLAGS.data_dir)
-  data = dict(train_labels=mnist.train.labels, test_labels=mnist.test.labels)
+  data = dict()
   for itr in all_iters:
     file_loc = osp.join(FLAGS.data_dir, '%d.pkl' % itr)
     with open(file_loc, 'rb') as f:
