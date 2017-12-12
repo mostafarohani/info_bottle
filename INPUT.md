@@ -12,8 +12,8 @@ $I(T;Y) = H(T) - H(T|Y)$ and $I(T;X) = H(T) - H(T|X) = H(T)$ (the network is det
 They then discretize the input and activation spaces, and estimate the entropy using the empirical bin counts.
 Using this procedure, their analysis is limited to toy networks and datasets (on order of 10s of inputs and features) so that the different possible values of $T, X, Y$ can be enumerated during the entropy computation.
 
-To investigate whether the phenomenon of the information bottleneck still appears for larger networks and real datasets, we employed \textit{deep generative models} to estimate the density functions $p(T)$ and $p(T|Y)$.
-In particular, we used an autoregressive model styled after \citet{pixelcnn}. Such methods factor the joint distribution $p(\mathbf{x})$ over $\mathbf{x} \in \mathbf{R}^n$ into a product of conditional distributions over its elements:
+To investigate whether the phenomenon of the information bottleneck still appears for larger networks and real datasets, we employed *_deep generative models_* to estimate the density functions $p(T)$ and $p(T|Y)$.
+In particular, we used an autoregressive model styled after PixelCNN. Such methods factor the joint distribution $p(\mathbf{x})$ over $\mathbf{x} \in \mathbf{R}^n$ into a product of conditional distributions over its elements:
 $ p(\mathbf{x}) = p(x_1, \dots, x_n) = \prod_{i=1}^{n} p(x_i|x_1, \dots, x_{i-1}) $.
 and then use a neural network to parametrize $p(x_i|x_{1:i-1})$. Given $x_1, \dots, x_{i-1}$, the network outputs a distribution over $x_i$ and is trained to maximize $\log p(\mathbf{x})$.
 
