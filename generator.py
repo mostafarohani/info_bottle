@@ -82,7 +82,7 @@ def train_generator(name, data, bins=32):
     # H(X|Y) = E[-log p(X|Y=y) p(Y=y)]
 
     mi = (nll - nll_cond) / np.log(2.)
-    nll = nll / np.log(2.)
+    ent = nll / np.log(2.)
 
     return tfu.Struct(loss=loss,
                       ent=tf.check_numerics(ent, 'ENT is NaN!'),
@@ -112,7 +112,12 @@ if __name__ == '__main__':
   all_iters = [0, 5, 10, 20, 1000, 9000]
   all_layers = [1, 3, 4]
 
+  if rank == 0:
+    mnist = input_data.read_data_sets(FLAGS.data_dir)
+  comm.Barrier()
+
   mnist = input_data.read_data_sets(FLAGS.data_dir)
+
   data = dict()
   for itr in all_iters:
     file_loc = osp.join(FLAGS.data_dir, '%d.pkl' % itr)
