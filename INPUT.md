@@ -32,3 +32,19 @@ mpirun -np 4 python generator.py --devices 0,1,2,3
 ```
 
 You can look at ```plots.ipynb``` for generating plots visualizing the results.
+
+## Results
+
+As a reference, this is the figure from Tishby and Zaslavky on their toy network.
+<p align="center">
+    <img src="assets/theirs.png" height="300">
+</p>
+And here is ours
+<p align="center">
+    <img src="assets/ours.png" height="300">
+</p>
+
+The two phases are apparent for $I(T;X)$, which increases and then decreases significantly for all layers. $I(T;Y)$ generally increases, but there are a few outlying points from the overall trend. These could be attributed to inaccuracies in the fitted generative model, or could indicate that the information bottleneck phenomenon does not occur as prominently in deeper networks.
+Although the results did not perfectly match the expected behavior, this the first (to our knowledge) analysis of the information bottleneck on nontrivial networks with nontrivial data.
+
+
