@@ -10,15 +10,17 @@ import pickle
 import tcml_util as util
 import ipdb
 from mpi4py import MPI
+import inspect
 
 
 class Generator(snt.AbstractModule):
   def __init__(self, name, dim_in, dim_out):
     super(Generator, self).__init__(name=name)
-
+    r = int(np.ceil(np.log2(dim_in)))
     with self._enter_variable_scope():
       layer_defs = [
-          util.tc_block(32, [1, 2, 4, 8, 16]),
+          util.conv1x1(64),
+          util.tc_block(32, 2 ** np.arange(r)),
           util.attention(keys_dim=32, vals_dim=32,
                          query_dim=32, max_path_length=dim_in),
           'tfu.leaky_relu',
@@ -27,9 +29,15 @@ class Generator(snt.AbstractModule):
       self.layers, self.layer_names = tfu.layer_factory(layer_defs)
       self._core = snt.Sequential(self.layers)
 
-  def _build(self, obs):
-    out = self._core(obs)
-    return out
+  def _build(self, x, z=None):
+    for core in self._core._layers:
+      if isinstance(core, snt.AbstractModule):
+        spec = inspect.signature(core._build).parameters
+        if 'z' in spec:
+          x = core(x, z=z)
+          continue
+      x = core(x)
+    return x
 
 
 def train_generator(name, data, bins=32):
@@ -59,9 +67,8 @@ def train_generator(name, data, bins=32):
 
     # Estimate log p(X), H(X) = E[-log p(X)]
     x_shifted = tf.concat([tf.zeros_like(x[:, :1]), x[:, :-1]], axis=1)
-    xy_shifted = tf.concat([tf.zeros_like(xy[:, :1]), xy[:, :-1]], axis=1)
     logits = model(x_shifted)
-    logits_cond = cond_model(xy_shifted)
+    logits_cond = cond_model(x_shifted, y)
 
     log_prob = ds.Categorical(logits).log_prob(x_discr)
     log_prob_cond = ds.Categorical(logits_cond).log_prob(x_discr)
