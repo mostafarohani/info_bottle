@@ -109,7 +109,7 @@ simplegeneric==0.8.1
 six==1.11.0
 sortedcontainers==1.5.7
 tblib==1.3.2
-tensorflow==1.4.0rc0
+tensorflow==1.15.0
 tensorflow-gpu==1.3.0
 tensorflow-tensorboard==0.4.0rc3
 terminado==0.6
