@@ -43,7 +43,7 @@ idna==2.6
 imageio==2.2.0
 ipdb==0.10.3
 ipykernel==4.6.1
-ipython==6.1.0
+ipython==7.16.3
 ipython-genutils==0.2.0
 ipywidgets==5.1.5
 itsdangerous==0.24
