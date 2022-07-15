@@ -27,7 +27,7 @@ cycler==0.10.0
 dask==0.16.0
 decorator==4.1.2
 dill==0.2.7.1
-distributed==1.20.1
+distributed==2021.10.0
 dm-sonnet==1.13
 entrypoints==0.2.3
 enum34==1.1.6
