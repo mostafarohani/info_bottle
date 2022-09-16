@@ -56,7 +56,7 @@ jupyter-core==4.3.0
 Lasagne==0.1
 llvmlite==0.20.0
 locket==0.2.0
-Mako==1.0.7
+Mako==1.2.2
 Markdown==2.6.9
 MarkupSafe==1.0
 matplotlib==2.0.2
